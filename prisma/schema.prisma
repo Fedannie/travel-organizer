@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  id          String   @id @default(cuid())
+  name        String
+  destination String?
+  duration    Int
+  tempMin     Int
+  tempMax     Int
+  activities  String   // JSON array of activities
+  createdAt   DateTime @default(now())
+  
+  packingLists PackingList[]
+}
+
+model PackingList {
+  id        String   @id @default(cuid())
+  tripId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  trip  Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  items PackingItem[]
+}
+
+model PackingItem {
+  id             String      @id @default(cuid())
+  packingListId  String
+  name           String
+  category       String
+  quantity       Int         @default(1)
+  packed         Boolean     @default(false)
+  priority       String      @default("medium")
+  notes          String?
+  
+  packingList PackingList @relation(fields: [packingListId], references: [id], onDelete: Cascade)
+}

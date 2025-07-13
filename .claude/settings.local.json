@@ -4,7 +4,18 @@
       "Bash(npx create-next-app:*)",
       "Bash(npm install:*)",
       "Bash(create-next-app:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npx prisma init:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(PORT=3001 npm run dev)",
+      "Bash(npx next dev:*)",
+      "Bash(timeout 15s npm run dev)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

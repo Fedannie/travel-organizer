@@ -2,230 +2,144 @@
 
 import { useState, useEffect } from 'react';
 import TripForm from '@/components/TripForm';
-import PackingList from '@/components/PackingList';
-import { Trip, PackingItem, PackingList as PackingListType } from '@/types';
+import { Trip } from '@/types';
 import { generatePackingList } from '@/utils/packingTemplates';
 
 export default function Home() {
-  const [currentTrip, setCurrentTrip] = useState<Trip | null>(null);
-  const [packingList, setPackingList] = useState<PackingListType | null>(null);
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const [lists, setLists] = useState<PackingListType[]>([]);
+  const [trips, setTrips] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load data from localStorage on component mount
   useEffect(() => {
-    const savedTrips = localStorage.getItem('travel-organizer-trips');
-    const savedLists = localStorage.getItem('travel-organizer-lists');
-    
-    if (savedTrips) {
-      setTrips(JSON.parse(savedTrips));
+    async function fetchTrips() {
+      try {
+        console.log('Starting API call...');
+        const response = await fetch('/api/trips');
+        console.log('Response status:', response.status, response.ok);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Data received:', data);
+        setTrips(data);
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      } finally {
+        setLoading(false);
+      }
     }
-    if (savedLists) {
-      setLists(JSON.parse(savedLists));
-    }
+
+    fetchTrips();
   }, []);
 
-  // Save to localStorage whenever trips or lists change
-  useEffect(() => {
-    localStorage.setItem('travel-organizer-trips', JSON.stringify(trips));
-  }, [trips]);
+  const handleTripSubmit = async (tripData: Omit<Trip, 'id' | 'createdAt'>) => {
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tripData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create trip');
+      }
+      
+      const newTrip = await response.json();
+      
+      const generatedItems = generatePackingList(
+        tripData.duration,
+        tripData.tempMin,
+        tripData.tempMax,
+        tripData.activities
+      );
 
-  useEffect(() => {
-    localStorage.setItem('travel-organizer-lists', JSON.stringify(lists));
-  }, [lists]);
+      const packingListData = {
+        tripId: newTrip.id,
+        name: `${tripData.name} - Packing List`,
+        items: generatedItems,
+      };
 
-  const handleTripSubmit = (tripData: Omit<Trip, 'id' | 'createdAt'>) => {
-    const newTrip: Trip = {
-      ...tripData,
-      id: `trip-${Date.now()}`,
-      createdAt: new Date(),
-    };
+      const listResponse = await fetch('/api/packing-lists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(packingListData),
+      });
+      
+      if (!listResponse.ok) {
+        throw new Error('Failed to create packing list');
+      }
 
-    const generatedItems = generatePackingList(
-      tripData.duration,
-      tripData.tempMin,
-      tripData.tempMax,
-      tripData.activities
+      // Refresh trips
+      const tripsResponse = await fetch('/api/trips');
+      if (tripsResponse.ok) {
+        const updatedTrips = await tripsResponse.json();
+        setTrips(updatedTrips);
+      }
+    } catch (error) {
+      console.error('Failed to create trip:', error);
+      setError('Failed to create trip');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <div className="text-lg text-gray-600">Loading trips...</div>
+      </div>
     );
+  }
 
-    const newPackingList: PackingListType = {
-      id: `list-${Date.now()}`,
-      tripId: newTrip.id,
-      name: `${tripData.name} - Packing List`,
-      items: generatedItems,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    setTrips(prev => [...prev, newTrip]);
-    setLists(prev => [...prev, newPackingList]);
-    setCurrentTrip(newTrip);
-    setPackingList(newPackingList);
-  };
-
-  const handleItemUpdate = (itemId: string, updates: Partial<PackingItem>) => {
-    if (!packingList) return;
-
-    const updatedItems = packingList.items.map(item =>
-      item.id === itemId ? { ...item, ...updates } : item
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="text-red-800">Error: {error}</div>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="mt-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
     );
-
-    const updatedList = {
-      ...packingList,
-      items: updatedItems,
-      updatedAt: new Date(),
-    };
-
-    setPackingList(updatedList);
-    setLists(prev => prev.map(list => 
-      list.id === packingList.id ? updatedList : list
-    ));
-  };
-
-  const handleItemAdd = (newItemData: Omit<PackingItem, 'id'>) => {
-    if (!packingList) return;
-
-    const newItem: PackingItem = {
-      ...newItemData,
-      id: `item-${Date.now()}`,
-    };
-
-    const updatedItems = [...packingList.items, newItem];
-    const updatedList = {
-      ...packingList,
-      items: updatedItems,
-      updatedAt: new Date(),
-    };
-
-    setPackingList(updatedList);
-    setLists(prev => prev.map(list => 
-      list.id === packingList.id ? updatedList : list
-    ));
-  };
-
-  const handleItemRemove = (itemId: string) => {
-    if (!packingList) return;
-
-    const updatedItems = packingList.items.filter(item => item.id !== itemId);
-    const updatedList = {
-      ...packingList,
-      items: updatedItems,
-      updatedAt: new Date(),
-    };
-
-    setPackingList(updatedList);
-    setLists(prev => prev.map(list => 
-      list.id === packingList.id ? updatedList : list
-    ));
-  };
-
-  const handleNewTrip = () => {
-    setCurrentTrip(null);
-    setPackingList(null);
-  };
-
-  const handleLoadTrip = (trip: Trip) => {
-    const list = lists.find(l => l.tripId === trip.id);
-    setCurrentTrip(trip);
-    setPackingList(list || null);
-  };
+  }
 
   return (
     <div className="space-y-8">
       {/* Trip History */}
       {trips.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Your Trips</h2>
-            <button
-              onClick={handleNewTrip}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-            >
-              New Trip
-            </button>
-          </div>
+          <h2 className="text-xl font-semibold mb-4">Your Trips ({trips.length})</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {trips.map(trip => {
-              const list = lists.find(l => l.tripId === trip.id);
-              const packedItems = list?.items.filter(item => item.packed).length || 0;
-              const totalItems = list?.items.length || 0;
-              const progress = totalItems > 0 ? (packedItems / totalItems) * 100 : 0;
-
-              return (
-                <div
-                  key={trip.id}
-                  onClick={() => handleLoadTrip(trip)}
-                  className={`p-4 border rounded-lg cursor-pointer hover:shadow-md transition-shadow ${
-                    currentTrip?.id === trip.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                >
-                  <h3 className="font-medium">{trip.name}</h3>
-                  <p className="text-sm text-gray-600">{trip.destination}</p>
-                  <p className="text-sm text-gray-600">
-                    {trip.duration} days • {trip.tempMin}°C - {trip.tempMax}°C
+            {trips.map(trip => (
+              <div key={trip.id} className="p-4 border border-gray-200 rounded-lg">
+                <h3 className="font-medium">{trip.name}</h3>
+                <p className="text-sm text-gray-600">{trip.destination}</p>
+                <p className="text-sm text-gray-600">
+                  {trip.duration} days • {trip.tempMin}°C - {trip.tempMax}°C
+                </p>
+                <p className="text-sm text-gray-600">
+                  Activities: {trip.activities.join(', ') || 'None'}
+                </p>
+                {trip.packingLists?.length > 0 && (
+                  <p className="text-sm text-blue-600 mt-2">
+                    {trip.packingLists[0].items?.length || 0} items in packing list
                   </p>
-                  <p className="text-sm text-gray-600">
-                    Activities: {trip.activities.join(', ')}
-                  </p>
-                  {totalItems > 0 && (
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-gray-600">
-                        <span>{packedItems}/{totalItems} packed</span>
-                        <span>{Math.round(progress)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
-                        <div
-                          className="bg-blue-600 h-1 rounded-full"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Trip Form or Packing List */}
-      {!currentTrip ? (
-        <TripForm onSubmit={handleTripSubmit} />
-      ) : (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-semibold">{currentTrip.name}</h2>
-                {currentTrip.destination && (
-                  <p className="text-gray-600">{currentTrip.destination}</p>
                 )}
-                <p className="text-sm text-gray-600">
-                  {currentTrip.duration} days • {currentTrip.tempMin}°C - {currentTrip.tempMax}°C
-                </p>
-                <p className="text-sm text-gray-600">
-                  Activities: {currentTrip.activities.join(', ')}
-                </p>
               </div>
-              <button
-                onClick={handleNewTrip}
-                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
-              >
-                New Trip
-              </button>
-            </div>
+            ))}
           </div>
-
-          {packingList && (
-            <PackingList
-              items={packingList.items}
-              onItemUpdate={handleItemUpdate}
-              onItemAdd={handleItemAdd}
-              onItemRemove={handleItemRemove}
-            />
-          )}
         </div>
       )}
+
+      {/* Trip Form */}
+      <TripForm onSubmit={handleTripSubmit} />
     </div>
   );
 }
