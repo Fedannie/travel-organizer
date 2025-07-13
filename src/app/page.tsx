@@ -12,6 +12,7 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [lists, setLists] = useState<PackingListType[]>([]);
   const [apiConnected, setApiConnected] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -248,6 +249,44 @@ export default function Home() {
     setPackingList(list || null);
   };
 
+  const handleDeleteTrip = async (tripId: string) => {
+    // Delete from database if connected
+    if (apiConnected) {
+      try {
+        const response = await fetch(`/api/trips/${tripId}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete trip from database');
+        }
+      } catch (error) {
+        console.error('Failed to delete trip from database:', error);
+        // Continue with local deletion even if database deletion fails
+      }
+    }
+
+    // Remove trip and associated packing lists from local state
+    setTrips(prev => prev.filter(trip => trip.id !== tripId));
+    setLists(prev => prev.filter(list => list.tripId !== tripId));
+    
+    // Clear current trip if it's the one being deleted
+    if (currentTrip?.id === tripId) {
+      setCurrentTrip(null);
+      setPackingList(null);
+    }
+    
+    setShowDeleteConfirm(null);
+  };
+
+  const confirmDelete = (tripId: string) => {
+    setShowDeleteConfirm(tripId);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(null);
+  };
+
   return (
     <div className="space-y-8">
       {/* Connection Status */}
@@ -290,33 +329,51 @@ export default function Home() {
               return (
                 <div
                   key={trip.id}
-                  onClick={() => handleLoadTrip(trip)}
-                  className={`p-4 border rounded-lg cursor-pointer hover:shadow-md transition-shadow ${
+                  className={`relative p-4 border rounded-lg hover:shadow-md transition-shadow ${
                     currentTrip?.id === trip.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                   }`}
                 >
-                  <h3 className="font-medium">{trip.name}</h3>
-                  <p className="text-sm text-gray-600">{trip.destination}</p>
-                  <p className="text-sm text-gray-600">
-                    {trip.duration} days • {trip.tempMin}°C - {trip.tempMax}°C
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Activities: {trip.activities.join(', ')}
-                  </p>
-                  {totalItems > 0 && (
-                    <div className="mt-2">
-                      <div className="flex justify-between text-xs text-gray-600">
-                        <span>{packedItems}/{totalItems} packed</span>
-                        <span>{Math.round(progress)}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
-                        <div
-                          className="bg-blue-600 h-1 rounded-full"
-                          style={{ width: `${progress}%` }}
-                        ></div>
-                      </div>
+                  <div
+                    onClick={() => handleLoadTrip(trip)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium">{trip.name}</h3>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(trip.id);
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
+                        title="Delete trip"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-                  )}
+                    <p className="text-sm text-gray-600">{trip.destination}</p>
+                    <p className="text-sm text-gray-600">
+                      {trip.duration} days • {trip.tempMin}°C - {trip.tempMax}°C
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Activities: {trip.activities.join(', ')}
+                    </p>
+                    {totalItems > 0 && (
+                      <div className="mt-2">
+                        <div className="flex justify-between text-xs text-gray-600">
+                          <span>{packedItems}/{totalItems} packed</span>
+                          <span>{Math.round(progress)}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
+                          <div
+                            className="bg-blue-600 h-1 rounded-full"
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -360,6 +417,34 @@ export default function Home() {
               onItemRemove={handleItemRemove}
             />
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Delete Trip</h3>
+              <p className="text-sm text-gray-600 mt-2">
+                Are you sure you want to delete this trip? This action cannot be undone and will also delete the associated packing list.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteTrip(showDeleteConfirm)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
