@@ -54,7 +54,6 @@ export async function PUT(
             category: item.category,
             quantity: item.quantity,
             packed: item.packed,
-            priority: item.priority,
             notes: item.notes
           }))
         }

@@ -41,7 +41,6 @@ model PackingItem {
   category       String
   quantity       Int         @default(1)
   packed         Boolean     @default(false)
-  priority       String      @default("medium")
   notes          String?
   
   packingList PackingList @relation(fields: [packingListId], references: [id], onDelete: Cascade)

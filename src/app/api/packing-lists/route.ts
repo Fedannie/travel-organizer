@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
             category: item.category,
             quantity: item.quantity,
             packed: item.packed,
-            priority: item.priority,
             notes: item.notes
           }))
         }

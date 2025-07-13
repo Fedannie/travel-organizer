@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const body = await request.json();
-    const { name, category, quantity, priority, notes } = body;
+    const { name, category, quantity, notes } = body;
 
     const item = await prisma.packingItem.create({
       data: {
@@ -15,7 +15,6 @@ export async function POST(
         name,
         category,
         quantity,
-        priority,
         notes,
         packed: false
       }

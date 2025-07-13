@@ -26,7 +26,6 @@ export default function PackingList({ items, onItemUpdate, onItemAdd, onItemRemo
     name: '',
     category: 'others' as Category,
     quantity: 1,
-    priority: 'medium' as const,
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -51,7 +50,6 @@ export default function PackingList({ items, onItemUpdate, onItemAdd, onItemRemo
         name: '',
         category: 'others',
         quantity: 1,
-        priority: 'medium',
       });
       setShowAddForm(false);
     }
@@ -169,11 +167,6 @@ export default function PackingList({ items, onItemUpdate, onItemAdd, onItemRemo
                     <span className={`${item.packed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                       {item.name}
                     </span>
-                    {item.priority === 'high' && (
-                      <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
-                        High Priority
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center space-x-2">
                     <input

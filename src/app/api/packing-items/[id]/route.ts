@@ -7,7 +7,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, category, quantity, packed, priority, notes } = body;
+    const { name, category, quantity, packed, notes } = body;
 
     const item = await prisma.packingItem.update({
       where: { id: params.id },
@@ -16,7 +16,6 @@ export async function PUT(
         ...(category !== undefined && { category }),
         ...(quantity !== undefined && { quantity }),
         ...(packed !== undefined && { packed }),
-        ...(priority !== undefined && { priority }),
         ...(notes !== undefined && { notes })
       }
     });

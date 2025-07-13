@@ -27,7 +27,6 @@ export interface PackingItem {
   category: Category;
   quantity: number;
   packed: boolean;
-  priority: 'high' | 'medium' | 'low';
   notes?: string;
 }
 
